@@ -1,12 +1,13 @@
 from src.load_env import load_env
-from src import App
+from src.App import load_app
 import asyncio
+from pyrogram.client import Client
 
-async def main():
+def main():
     api_data = load_env()
-    app = App.channel_builder(api_data)
+    app = load_app(api_data)
     app.run()
     
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
