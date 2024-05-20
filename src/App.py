@@ -12,8 +12,9 @@ import json
 import os
 
 current_dir = os.getcwd()
-DATA_PATH = os.path.join(current_dir, 'data/referenceChannels.json')
-STATS_PATH = os.path.join(current_dir, 'tmp/stats.json')
+DATA_PATH = os.path.join(current_dir, "data/referenceChannels.json")
+VIP_PATH = os.path.join(current_dir, "data/priorityChannels.json")
+STATS_PATH = os.path.join(current_dir, "tmp/stats.json")
 CHECK_NUMBER = -1
 CHANNELS_NUMBER = 0
 CHECK_FREQ = 30
@@ -28,7 +29,7 @@ def load_app(api: Dict[str,str|None]) -> Client:
     app = Client("ChannelBuilder", api_id=api["api_id"], api_hash=api["api_hash"])
     app.add_handler(MessageHandler(handle_channel_message, filters.channel))
     
-    CHANNEL_ID = api['channel_id']
+    CHANNEL_ID = api["channel_id"]
     
     return app
 
@@ -39,24 +40,13 @@ def handle_channel_message(client: Client, message: Message) -> None:
     
     print(channel_name)
     
-    if not is_whitelisted(channel_name):
-        return
-    
-    last_post = get_stats(channel_name)
-    
-    if last_post == -1:
-        # Ok its the first post so repost
-        do_post = True
-    else:
-        do_post = to_post_or_not_to_post(last_post, get_channels_number())
-    
     if do_post:
-        print('POSTED')
+        print("POSTED")
         repost(client, message)
     else:
-        print('NOT POSTED')
+        print("NOT POSTED")
         
-    load_stats(channel_name)
+    save_stats(channel_name)    # save statistics for this channel
     
     return
 
@@ -72,45 +62,69 @@ def repost(client: Client, message: Message) -> None:
     
 
 def is_whitelisted(username:str) -> bool:
-    with open(DATA_PATH, 'r') as file:
+    with open(DATA_PATH, "r") as file:
         data = json.load(file)
     return username in data and data[username]
 
+
 def get_stats(username: str) -> int:
-    with open(STATS_PATH, 'r') as file:
+    with open(STATS_PATH, "r") as file:
         data = json.load(file)
     return data[username] if username in data else -1 # -1 if there were not posts yet
 
-def load_stats(username: str) -> None:
-    with open(STATS_PATH, 'r') as file:
+
+def save_stats(username: str) -> None:
+    with open(STATS_PATH, "r") as file:
         data = json.load(file)
     data[username] = int(datetime.timestamp(datetime.now()))
     
-    with open(STATS_PATH, 'w') as file:
+    with open(STATS_PATH, "w") as file:
         json.dump(data, file, indent=2)
     
     return
 
+# Return if channel is prioritized (VIP in other words)
+def is_channel_vip(channel_name: str) -> bool:
+    with open(VIP_PATH, "r") as file:
+        data = json.load(file)
+    return channel_name in data and data[channel_name]
 
+
+# Get channels number (used for posting chance formula)
 def get_channels_number():
     global CHECK_FREQ, CHECK_NUMBER, CHANNELS_NUMBER
-    if CHECK_NUMBER == CHECK_FREQ or CHECK_NUMBER == -1:
+    if CHECK_NUMBER == CHECK_FREQ or CHECK_NUMBER == -1:    # Check if we need to recalculate channels number
         CHECK_NUMBER = 0
-        with open(DATA_PATH, 'r') as file:
+        with open(DATA_PATH, "r") as file:
             data = json.load(file)
         CHANNELS_NUMBER = list(data.values()).count(True)
     return CHANNELS_NUMBER
 
 
-def to_post_or_not_to_post(last_post: int, channels_number: int, multiplier = 1000) -> bool:
+# Function to decide if we need to repost
+# It checks:
+#   * is channel whitelisted
+#   * is channel vip
+#   * compares with last post time
+def to_post_or_not_to_post(channel_name: str, channels_number: int, multiplier = 1000) -> bool:
+    if not is_whitelisted(channel_name):    # Do not post garbage channels
+        return False
+
+    if is_channel_vip(channel_name):    # We always post +ANTURAJ
+        return True
+    
+    last_post = get_stats(channel_name)
+    if last_post == -1: # The first post for this channel in history -> always post
+        return True
+    
     time_now = int(datetime.timestamp(datetime.now()))
     
-    if time_now == last_post:
+    if time_now == last_post:   # To fast posting 
         return False
     
-    chance = 1.0 - multiplier * channels_number / (time_now - last_post)
+    chance = 1.0 - multiplier * channels_number / (time_now - last_post)    # formula can be changed in future
     print(chance)
-    print(f'Chan num: {channels_number}, time now: {time_now}, last_post: {last_post}')
+    print(f"Chan num: {channels_number}, time now: {time_now}, last_post: {last_post}") # Some logs. TODO: normal logging system
     if chance <= 0:
         return False
     return random() < chance
