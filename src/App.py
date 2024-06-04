@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, List
 import asyncio
 from pyrogram import filters
 from pyrogram.client import Client
@@ -15,10 +15,12 @@ current_dir = os.getcwd()
 DATA_PATH = os.path.join(current_dir, "data/referenceChannels.json")
 VIP_PATH = os.path.join(current_dir, "data/priorityChannels.json")
 STATS_PATH = os.path.join(current_dir, "tmp/stats.json")
+SETTINGS_PATH = os.path.join(current_dir, "data/settings.json")
 CHECK_NUMBER = -1
 CHANNELS_NUMBER = 0
 CHECK_FREQ = 30
 CHANNEL_ID = 0
+MULTIPLIER = 0
 
 def load_app(api: Dict[str,str|None]) -> Client:
     global CHANNEL_ID
@@ -28,29 +30,80 @@ def load_app(api: Dict[str,str|None]) -> Client:
         raise ValueError("API dictionary is none")
     app = Client("ChannelBuilder", api_id=api["api_id"], api_hash=api["api_hash"])
     app.add_handler(MessageHandler(handle_channel_message, filters.channel))
+    app.add_handler(MessageHandler(handle_command, filters.AndFilter(filters.me(), filters.command(["add", "vip", "mult", "remove", "unvip"], prefixes="%%"))))
     
     CHANNEL_ID = api["channel_id"]
     
     return app
+
+# Func to handle commands:
+#   * VIP - add to vip channels
+#   * ADD - add new channel to follow
+#   * MULT - change multiplier
+#   * REMOVE - remove from followings
+#   * UNVIP - remove from vips
+def handle_command(client: Client, message: Message) -> None:
+    cmd = message.command
+    if cmd[0] == "mult":
+        change_multiplier(int(cmd[1]))
+        return
+    
+    path = ""
+    new_data = False
+    
+    if cmd[0] in ["add", "remove"]:
+        path = DATA_PATH
+    elif cmd[0] in ["vip", "unvip"]:
+        path = VIP_PATH
+        
+    if cmd[0] in ["add", "vip"]:
+        new_data = True
+    elif cmd[0] in ["remove", "unvip"]:
+        new_data = False
+        
+    change_channels_data(cmd[1:], path, new_data)
+        
+    return
+
+def change_multiplier(new_value: int) -> None:
+    MULTIPLIER = new_value
+    with open(SETTINGS_PATH, "r") as file:
+        data = json.load(file)
+    data["multiplier"] = new_value
+    
+    return
+    
+def change_channels_data(channels: List[str], path: str, new_data: bool) -> None:
+    with open(path, "r") as file:
+        data = json.load(file)
+        
+    for channel in channels:
+        data[channel] = new_data
+        
+    with open(STATS_PATH, "w") as file:
+        json.dump(data, file, indent=2)
+        
+    return
 
 def handle_channel_message(client: Client, message: Message) -> None:
         
     chat: Chat = message.sender_chat
     channel_name = chat.username
     
-    print(channel_name)
+    load_settings() # Why so many times? Every single post....
+    do_post = to_post_or_not_to_post(channel_name, get_channels_number(), multiplier=MULTIPLIER)
     
-    if do_post:
-        print("POSTED")
-        repost(client, message)
-    else:
-        print("NOT POSTED")
+    repost(client, message, do_post)
+    print(("POSTED" if do_post else "NOT POSTED") + f" {channel_name}") 
         
     save_stats(channel_name)    # save statistics for this channel
     
     return
 
-def repost(client: Client, message: Message) -> None:
+def repost(client: Client, message: Message, do_post: bool) -> None:
+    
+    if not do_post:
+        return
     
     client.forward_messages(
         CHANNEL_ID,
@@ -89,7 +142,6 @@ def is_channel_vip(channel_name: str) -> bool:
         data = json.load(file)
     return channel_name in data and data[channel_name]
 
-
 # Get channels number (used for posting chance formula)
 def get_channels_number():
     global CHECK_FREQ, CHECK_NUMBER, CHANNELS_NUMBER
@@ -100,6 +152,13 @@ def get_channels_number():
         CHANNELS_NUMBER = list(data.values()).count(True)
     return CHANNELS_NUMBER
 
+# Load settings from settings.json (Why it is not in .env? Because we do change it)
+def load_settings():
+    global MULTIPLIER
+    with open(SETTINGS_PATH, "r") as file:
+        data = json.load(file)
+    MULTIPLIER = data["multiplier"]
+    
 
 # Function to decide if we need to repost
 # It checks:
@@ -124,7 +183,7 @@ def to_post_or_not_to_post(channel_name: str, channels_number: int, multiplier =
     
     chance = 1.0 - multiplier * channels_number / (time_now - last_post)    # formula can be changed in future
     print(chance)
-    print(f"Chan num: {channels_number}, time now: {time_now}, last_post: {last_post}") # Some logs. TODO: normal logging system
+    print(f"Channel num: {channels_number}, time now: {time_now}, last_post: {last_post}") # Some logs. TODO: normal logging system
     if chance <= 0:
         return False
     return random() < chance
