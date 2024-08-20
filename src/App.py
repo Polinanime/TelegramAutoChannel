@@ -30,7 +30,7 @@ def load_app(api: Dict[str,str|None]) -> Client:
         raise ValueError("API dictionary is none")
     app = Client("ChannelBuilder", api_id=api["api_id"], api_hash=api["api_hash"])
     app.add_handler(MessageHandler(handle_channel_message, filters.channel))
-    app.add_handler(MessageHandler(handle_command, filters.AndFilter(filters.me(), filters.command(["add", "vip", "mult", "remove", "unvip"], prefixes="%%"))))
+    # app.add_handler(MessageHandler(handle_command, filters.AndFilter(filters.me(), filters.command(["add", "vip", "mult", "remove", "unvip"], prefixes="%%"))))
     
     CHANNEL_ID = api["channel_id"]
     
@@ -91,7 +91,9 @@ def handle_channel_message(client: Client, message: Message) -> None:
     channel_name = chat.username
     
     load_settings() # Why so many times? Every single post....
-    do_post = to_post_or_not_to_post(channel_name, get_channels_number(), multiplier=MULTIPLIER)
+
+    print(message.chat.id)
+    do_post = to_post_or_not_to_post(channel_name, get_channels_number(), multiplier=0)
     
     repost(client, message, do_post)
     print(("POSTED" if do_post else "NOT POSTED") + f" {channel_name}") 
@@ -179,7 +181,7 @@ def to_post_or_not_to_post(channel_name: str, channels_number: int, multiplier =
     time_now = int(datetime.timestamp(datetime.now()))
     
     if time_now == last_post:   # To fast posting 
-        return False
+        return True
     
     chance = 1.0 - multiplier * channels_number / (time_now - last_post)    # formula can be changed in future
     print(chance)

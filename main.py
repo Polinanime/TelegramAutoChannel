@@ -4,9 +4,12 @@ import asyncio
 from pyrogram.client import Client
 
 def main():
-    api_data = load_env()
-    app = load_app(api_data)
-    app.run()
+    try: 
+        api_data = load_env()
+        app = load_app(api_data)
+        app.run()
+    except Exception:
+        main()
     
 
 if __name__ == "__main__":
