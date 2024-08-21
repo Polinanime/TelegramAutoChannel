@@ -28,9 +28,10 @@ def load_app(api: Dict[str,str|None]) -> Client:
     # CREATE APP
     if (None in api.values() or api["api_id"] is None or api["api_hash"] is None):
         raise ValueError("API dictionary is none")
+
     app = Client("ChannelBuilder", api_id=api["api_id"], api_hash=api["api_hash"])
     app.add_handler(MessageHandler(handle_channel_message, filters.channel))
-    # app.add_handler(MessageHandler(handle_command, filters.AndFilter(filters.me(), filters.command(["add", "vip", "mult", "remove", "unvip"], prefixes="%%"))))
+    app.add_handler(MessageHandler(handle_command, filters.AndFilter(filters.chat("self"), filters.command(["add", "vip", "mult", "remove", "unvip"], prefixes="%%"))))
     
     CHANNEL_ID = api["channel_id"]
     
@@ -43,7 +44,9 @@ def load_app(api: Dict[str,str|None]) -> Client:
 #   * REMOVE - remove from followings
 #   * UNVIP - remove from vips
 def handle_command(client: Client, message: Message) -> None:
+    print("COMMAND:" + message.text)
     cmd = message.command
+    
     if cmd[0] == "mult":
         change_multiplier(int(cmd[1]))
         return
@@ -61,6 +64,8 @@ def handle_command(client: Client, message: Message) -> None:
     elif cmd[0] in ["remove", "unvip"]:
         new_data = False
         
+    print(f"Name: {cmd[1:]}, new_data: {new_data}, path: {path}")
+        
     change_channels_data(cmd[1:], path, new_data)
         
     return
@@ -70,6 +75,8 @@ def change_multiplier(new_value: int) -> None:
     with open(SETTINGS_PATH, "r") as file:
         data = json.load(file)
     data["multiplier"] = new_value
+    with open(SETTINGS_PATH, "w") as file:
+        json.dump(data, file, indent=2)
     
     return
     
@@ -80,13 +87,12 @@ def change_channels_data(channels: List[str], path: str, new_data: bool) -> None
     for channel in channels:
         data[channel] = new_data
         
-    with open(STATS_PATH, "w") as file:
+    with open(path, "w") as file:
         json.dump(data, file, indent=2)
         
     return
 
-def handle_channel_message(client: Client, message: Message) -> None:
-        
+def handle_channel_message(client: Client, message: Message) -> None:    
     chat: Chat = message.sender_chat
     channel_name = chat.username
     
@@ -103,7 +109,6 @@ def handle_channel_message(client: Client, message: Message) -> None:
     return
 
 def repost(client: Client, message: Message, do_post: bool) -> None:
-    
     if not do_post:
         return
     
