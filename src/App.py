@@ -124,19 +124,13 @@ def repost(client: Client, message: Message, do_post: bool) -> None:
             # media.caption = media.caption + f"Автор: @{message.chat.username}\n\n[СТЕНА ИННОПОЛИС. ПОДПИСАТЬЯ.](https://t.me/+GC10Uk2uhnsyN2Y6)"
         
         # client.send_media_group(CHANNEL_ID, media_group)#, caption=message.caption + f"Автор: @{message.chat.username}\n\n[СТЕНА ИННОПОЛИС. ПОДПИСАТЬЯ.](https://t.me/+GC10Uk2uhnsyN2Y6)")
-        client.copy_media_group(CHANNEL_ID, message.chat.id, message_id=message.id, captions=message.caption + "\n\n" + f"Автор: @{message.chat.username}\n\n[Стена Иннополис. Подписаться.](https://t.me/+GC10Uk2uhnsyN2Y6)")
+        client.copy_media_group(CHANNEL_ID, message.chat.id, message_id=message.id, captions=message.caption + "\n\n" + f"Автор: @{message.chat.username}\n\n[Стена Иннополис. ПОДПИСАТЬЯ.](https://t.me/+GC10Uk2uhnsyN2Y6)")
     except ValueError as e:
         print(e)
         if message.text is not None:
             client.send_message(CHANNEL_ID, message.text + "\n\n" + f"Автор: @{message.chat.username}\n\n[Стена Иннополис. Подписаться.](https://t.me/+GC10Uk2uhnsyN2Y6)")
         else:
             client.forward_messages(
-                CHANNEL_ID,
-                from_chat_id=message.chat.id,
-                message_ids=message.id
-            )
-    except Exception as e:
-        client.forward_messages(
                 CHANNEL_ID,
                 from_chat_id=message.chat.id,
                 message_ids=message.id
