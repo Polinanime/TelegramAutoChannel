@@ -34,7 +34,7 @@ def load_app(api: Dict[str,str|None]) -> Client:
 
     app = Client("ChannelBuilder", api_id=api["api_id"], api_hash=api["api_hash"])
     app.add_handler(MessageHandler(handle_channel_message, filters.channel))
-    app.add_handler(MessageHandler(handle_command, filters.AndFilter(filters.chat("self"), filters.command(["add", "vip", "mult", "remove", "unvip"], prefixes="%%"))))
+    app.add_handler(MessageHandler(handle_command, filters.AndFilter(filters.chat("self"), filters.command(["add", "vip", "mult", "remove", "unvip", "ping"], prefixes="%%"))))
     
     CHANNEL_ID = api["channel_id"]
     
@@ -56,6 +56,10 @@ def handle_command(client: Client, message: Message) -> None:
     
     path = ""
     new_data = False
+    
+    if cmd[0] == "ping":
+        client.send_message(message.chat.id, "Pong")
+        return
     
     if cmd[0] in ["add", "remove"]:
         path = DATA_PATH
