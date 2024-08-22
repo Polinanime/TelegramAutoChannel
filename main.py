@@ -9,7 +9,7 @@ def main():
         app = load_app(api_data)
         app.run()
     except Exception:
-        return
+        main()
     
 
 if __name__ == "__main__":

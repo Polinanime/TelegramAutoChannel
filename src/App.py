@@ -136,7 +136,11 @@ def repost(client: Client, message: Message, do_post: bool) -> None:
                 message_ids=message.id
             )
     except Exception as e:
-        print(e)
+        client.forward_messages(
+                CHANNEL_ID,
+                from_chat_id=message.chat.id,
+                message_ids=message.id
+            )
         
     
     # client.copy_message(CHANNEL_ID, message.chat.id, message_id=message.id)
