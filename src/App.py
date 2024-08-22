@@ -109,14 +109,43 @@ def handle_channel_message(client: Client, message: Message) -> None:
     return
 
 def repost(client: Client, message: Message, do_post: bool) -> None:
+    print(message.chat.id)
+    print(message.id)
+    print(CHANNEL_ID)
+       
     if not do_post:
         return
     
-    client.forward_messages(
-        CHANNEL_ID,
-        from_chat_id=message.chat.id,
-        message_ids=message.id
-    )
+    try:
+        media_group = client.get_media_group(message.chat.id, message.id)
+        # for media in media_group:
+            #if media.caption is None:
+            #    media.caption = ""
+            # media.caption = media.caption + f"Автор: @{message.chat.username}\n\n[СТЕНА ИННОПОЛИС. ПОДПИСАТЬЯ.](https://t.me/+GC10Uk2uhnsyN2Y6)"
+        
+        # client.send_media_group(CHANNEL_ID, media_group)#, caption=message.caption + f"Автор: @{message.chat.username}\n\n[СТЕНА ИННОПОЛИС. ПОДПИСАТЬЯ.](https://t.me/+GC10Uk2uhnsyN2Y6)")
+        client.copy_media_group(CHANNEL_ID, message.chat.id, message_id=message.id, captions=message.caption + "\n\n" + f"Автор: @{message.chat.username}\n\n[СТЕНА ИННОПОЛИС. ПОДПИСАТЬЯ.](https://t.me/+GC10Uk2uhnsyN2Y6)")
+    except ValueError as e:
+        print(e)
+        if message.text is not None:
+            client.send_message(CHANNEL_ID, message.text + "\n\n" + f"Автор: @{message.chat.username}\n\n[СТЕНА ИННОПОЛИС. ПОДПИСАТЬЯ.](https://t.me/+GC10Uk2uhnsyN2Y6)")
+        else:
+            client.forward_messages(
+                CHANNEL_ID,
+                from_chat_id=message.chat.id,
+                message_ids=message.id
+            )
+    except Exception as e:
+        print(e)
+        
+    
+    # client.copy_message(CHANNEL_ID, message.chat.id, message_id=message.id)
+    
+    # client.forward_messages(
+    #    CHANNEL_ID,
+    #    from_chat_id=message.chat.id,
+    #    message_ids=message.id
+    # )
     
     return 
     
@@ -185,8 +214,8 @@ def to_post_or_not_to_post(channel_name: str, channels_number: int, multiplier =
     
     time_now = int(datetime.timestamp(datetime.now()))
     
-    if time_now == last_post:   # To fast posting 
-        return True
+    if time_now == last_post:   # Too fast posting 
+        return False
     
     chance = 1.0 - multiplier * channels_number / (time_now - last_post)    # formula can be changed in future
     print(chance)
