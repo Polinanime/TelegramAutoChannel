@@ -7,6 +7,7 @@ from pyrogram.types import Message, Chat
 from pyrogram import idle
 from datetime import datetime
 from random import random
+import time
 import json
 
 import os
@@ -21,6 +22,8 @@ CHANNELS_NUMBER = 0
 CHECK_FREQ = 30
 CHANNEL_ID = 0
 MULTIPLIER = 0
+POSTED = {}
+COUNTER = 0
 
 def load_app(api: Dict[str,str|None]) -> Client:
     global CHANNEL_ID
@@ -104,11 +107,12 @@ def handle_channel_message(client: Client, message: Message) -> None:
     repost(client, message, do_post)
     print(("POSTED" if do_post else "NOT POSTED") + f" {channel_name}") 
         
-    save_stats(channel_name)    # save statistics for this channel
+    # save_stats(channel_name)    # save statistics for this channel
     
     return
 
 def repost(client: Client, message: Message, do_post: bool) -> None:
+    print(time.time())
     print(message.chat.id)
     print(message.id)
     print(CHANNEL_ID)
@@ -116,20 +120,37 @@ def repost(client: Client, message: Message, do_post: bool) -> None:
     if not do_post:
         return
     
-    try:
+    print(POSTED, message.media_group_id)
+    
+    if message.media_group_id:
         media_group = client.get_media_group(message.chat.id, message.id)
-        # for media in media_group:
-            #if media.caption is None:
-            #    media.caption = ""
-            # media.caption = media.caption + f"Автор: @{message.chat.username}\n\n[СТЕНА ИННОПОЛИС. ПОДПИСАТЬЯ.](https://t.me/+GC10Uk2uhnsyN2Y6)"
+        has_caption = any([True for msg in media_group if msg.caption is not None])
+    else:
+        has_caption = False
         
-        # client.send_media_group(CHANNEL_ID, media_group)#, caption=message.caption + f"Автор: @{message.chat.username}\n\n[СТЕНА ИННОПОЛИС. ПОДПИСАТЬЯ.](https://t.me/+GC10Uk2uhnsyN2Y6)")
-        client.copy_media_group(CHANNEL_ID, message.chat.id, message_id=message.id, captions=message.caption + "\n\n" + f"Автор: @{message.chat.username}\n\n[Стена Иннополис. ПОДПИСАТЬЯ.](https://t.me/+GC10Uk2uhnsyN2Y6)")
-    except ValueError as e:
-        print(e)
-        if message.text is not None:
-            client.send_message(CHANNEL_ID, message.text + "\n\n" + f"Автор: @{message.chat.username}\n\n[Стена Иннополис. Подписаться.](https://t.me/+GC10Uk2uhnsyN2Y6)")
+    try:
+        print("GROUP")
+        if POSTED.get(message.chat.id) == message.media_group_id and message.media_group_id is not None:
+            print("ALREADY POSTED")
+            return
+        
+        client.copy_media_group(CHANNEL_ID, message.chat.id, message_id=message.id, captions=message.caption + "\n\n" + f"Автор: @{message.chat.username}\n\n[Стена Иннополис. Подписаться.](https://t.me/+GC10Uk2uhnsyN2Y6)")
+        POSTED[message.chat.id] = message.media_group_id
+#     except TypeError as e:
+#        return
+    except Exception as e:
+        print("ERROR: ", e)
+        if message.photo and  e is not TypeError:
+            if not (not message.media_group_id or (message.media_group_id and not has_caption)):
+                return
+            print("PHOTO")
+            client.send_photo(CHANNEL_ID, message.photo.file_id, caption=("" if message.caption is None else message.caption) + "\n\n" + f"Автор: @{message.chat.username}\n\n[Стена Иннополис. Подписаться.](https://t.me/+GC10Uk2uhnsyN2Y6)")
+            POSTED[message.chat.id] = message.media_group_id
+        elif message.text is not None:
+            print("TEXT")
+            client.send_message(CHANNEL_ID, message.text + "\n\n" + f"Автор: @{message.chat.username}\n\n[Стена Иннополис. Подписаться.](https://t.me/+GC10Uk2uhnsyN2Y6)", disable_web_page_preview=True)
         else:
+            print("FORWARD")
             client.forward_messages(
                 CHANNEL_ID,
                 from_chat_id=message.chat.id,
@@ -146,7 +167,7 @@ def repost(client: Client, message: Message, do_post: bool) -> None:
     # )
     
     return 
-    
+
 
 def is_whitelisted(username:str) -> bool:
     with open(DATA_PATH, "r") as file:
