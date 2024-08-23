@@ -144,11 +144,17 @@ def repost(client: Client, message: Message, do_post: bool) -> None:
 #        return
     except Exception as e:
         print("ERROR: ", e)
-        if message.photo and  e is not TypeError:
+        if message.photo and e is not TypeError:
             if not (not message.media_group_id or (message.media_group_id and not has_caption)):
                 return
             print("PHOTO")
             client.send_photo(CHANNEL_ID, message.photo.file_id, caption=("" if message.caption is None else message.caption) + "\n\n" + f"Автор: @{message.chat.username}\n\n[Стена Иннополис. Подписаться.](https://t.me/+GC10Uk2uhnsyN2Y6)")
+            POSTED[message.chat.id] = message.media_group_id
+        if message.video and e is not TypeError:
+            if not (not message.media_group_id or (message.media_group_id and not has_caption)):
+                return
+            print("VIDEO")
+            client.send_video(CHANNEL_ID, message.video.file_id, caption=("" if message.caption is None else message.caption) + "\n\n" + f"Автор: @{message.chat.username}\n\n[Стена Иннополис. Подписаться.](https://t.me/+GC10Uk2uhnsyN2Y6)")
             POSTED[message.chat.id] = message.media_group_id
         elif message.text is not None:
             print("TEXT")
