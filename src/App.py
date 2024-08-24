@@ -133,12 +133,12 @@ def repost(client: Client, message: Message, do_post: bool) -> None:
         has_caption = False
         
     try:
-        print("GROUP")
         if POSTED.get(message.chat.id) == message.media_group_id and message.media_group_id is not None:
             print("ALREADY POSTED")
             return
         
         client.copy_media_group(CHANNEL_ID, message.chat.id, message_id=message.id, captions=message.caption + "\n\n" + f"Автор: @{message.chat.username}\n\n[Стена Иннополис. Подписаться.](https://t.me/+GC10Uk2uhnsyN2Y6)")
+        print("GROUP")
         POSTED[message.chat.id] = message.media_group_id
 #     except TypeError as e:
 #        return
@@ -150,7 +150,7 @@ def repost(client: Client, message: Message, do_post: bool) -> None:
             print("PHOTO")
             client.send_photo(CHANNEL_ID, message.photo.file_id, caption=("" if message.caption is None else message.caption) + "\n\n" + f"Автор: @{message.chat.username}\n\n[Стена Иннополис. Подписаться.](https://t.me/+GC10Uk2uhnsyN2Y6)")
             POSTED[message.chat.id] = message.media_group_id
-        if message.video and e is not TypeError:
+        elif message.video and e is not TypeError:
             if not (not message.media_group_id or (message.media_group_id and not has_caption)):
                 return
             print("VIDEO")
