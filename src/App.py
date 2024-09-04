@@ -4,7 +4,7 @@ from pyrogram import filters
 from pyrogram.client import Client
 from pyrogram.handlers.message_handler import MessageHandler
 from pyrogram.types import Message, Chat
-from pyrogram import idle
+from pyrogram import enums
 from datetime import datetime
 from random import random
 import time
@@ -137,7 +137,7 @@ def repost(client: Client, message: Message, do_post: bool) -> None:
             print("ALREADY POSTED")
             return
         
-        client.copy_media_group(CHANNEL_ID, message.chat.id, message_id=message.id, captions=message.caption.markdown + "\n\n" + f"Автор: @{message.chat.username}\n\n[Стена Иннополис. Подписаться.](https://t.me/+GC10Uk2uhnsyN2Y6)")
+        client.copy_media_group(CHANNEL_ID, message.chat.id, message_id=message.id, captions=message.caption.html + "\n\n" + f"Автор: @{message.chat.username}\n\n[Стена Иннополис. Подписаться.](https://t.me/+GC10Uk2uhnsyN2Y6)")
         print("GROUP")
         POSTED[message.chat.id] = message.media_group_id
 #     except TypeError as e:
@@ -148,18 +148,17 @@ def repost(client: Client, message: Message, do_post: bool) -> None:
             if not (not message.media_group_id or (message.media_group_id and not has_caption)):
                 return
             print("PHOTO")
-            client.send_photo(CHANNEL_ID, message.photo.file_id, caption=("" if message.caption is None else message.caption.markdown) + "\n\n" + f"Автор: @{message.chat.username}\n\n[Стена Иннополис. Подписаться.](https://t.me/+GC10Uk2uhnsyN2Y6)")
+            client.send_photo(CHANNEL_ID, message.photo.file_id, caption=("" if message.caption is None else message.caption.html) + "\n\n" + f"Автор: @{message.chat.username}\n\n[Стена Иннополис. Подписаться.](https://t.me/+GC10Uk2uhnsyN2Y6)")
             POSTED[message.chat.id] = message.media_group_id
         elif message.video and e is not TypeError:
             if not (not message.media_group_id or (message.media_group_id and not has_caption)):
                 return
             print("VIDEO")
-            client.send_video(CHANNEL_ID, message.video.file_id, caption=("" if message.caption is None else message.caption.markdown) + "\n\n" + f"Автор: @{message.chat.username}\n\n[Стена Иннополис. Подписаться.](https://t.me/+GC10Uk2uhnsyN2Y6)")
+            client.send_video(CHANNEL_ID, message.video.file_id, caption=("" if message.caption is None else message.caption.html) + "\n\n" + f"Автор: @{message.chat.username}\n\n[Стена Иннополис. Подписаться.](https://t.me/+GC10Uk2uhnsyN2Y6)")
             POSTED[message.chat.id] = message.media_group_id
         elif message.text is not None:
             print("TEXT")
-            print(message.text.markdown)
-            client.send_message(CHANNEL_ID, message.text.markdown + "\n\n" + f"Автор: @{message.chat.username}\n\n[Стена Иннополис. Подписаться.](https://t.me/+GC10Uk2uhnsyN2Y6)", disable_web_page_preview=True)
+            client.send_message(CHANNEL_ID, message.text.html + "\n\n" + f"Автор: @{message.chat.username}\n\n[Стена Иннополис. Подписаться.](https://t.me/+GC10Uk2uhnsyN2Y6)", disable_web_page_preview=True)
         else:
             print("FORWARD")
             client.forward_messages(
