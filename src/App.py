@@ -142,23 +142,38 @@ def repost(client: Client, message: Message, do_post: bool) -> None:
         POSTED[message.chat.id] = message.media_group_id
 #     except TypeError as e:
 #        return
+
     except Exception as e:
+        new_caption = ""
+        if message.caption is not None:
+            new_caption = message.caption.html
+        elif message.text is not None:
+            new_caption = message.text.html
+        
+            
+        if message.forward_from_chat and message.forward_from_chat.username:
+            new_caption += f"\n\nПереслано из: @{message.forward_from_chat.username}"
+            new_caption += f"\n\nАвтор: @{message.chat.username}"
+        else:
+            new_caption += f"\n\nАвтор: @{message.chat.username}"
+        new_caption += "\n\n[Стена Иннополис. Подписаться.](https://t.me/+GC10Uk2uhnsyN2Y6)"
+
         print("ERROR: ", e)
         if message.photo and e is not TypeError:
             if not (not message.media_group_id or (message.media_group_id and not has_caption)):
                 return
             print("PHOTO")
-            client.send_photo(CHANNEL_ID, message.photo.file_id, caption=("" if message.caption is None else message.caption.html) + "\n\n" + f"Автор: @{message.chat.username}\n\n[Стена Иннополис. Подписаться.](https://t.me/+GC10Uk2uhnsyN2Y6)")
+            client.send_photo(CHANNEL_ID, message.photo.file_id, caption=new_caption)
             POSTED[message.chat.id] = message.media_group_id
         elif message.video and e is not TypeError:
             if not (not message.media_group_id or (message.media_group_id and not has_caption)):
                 return
             print("VIDEO")
-            client.send_video(CHANNEL_ID, message.video.file_id, caption=("" if message.caption is None else message.caption.html) + "\n\n" + f"Автор: @{message.chat.username}\n\n[Стена Иннополис. Подписаться.](https://t.me/+GC10Uk2uhnsyN2Y6)")
+            client.send_video(CHANNEL_ID, message.video.file_id, caption=new_caption)
             POSTED[message.chat.id] = message.media_group_id
         elif message.text is not None:
             print("TEXT")
-            client.send_message(CHANNEL_ID, message.text.html + "\n\n" + f"Автор: @{message.chat.username}\n\n[Стена Иннополис. Подписаться.](https://t.me/+GC10Uk2uhnsyN2Y6)", disable_web_page_preview=True)
+            client.send_message(CHANNEL_ID, new_caption, disable_web_page_preview=True)
         else:
             print("FORWARD")
             client.forward_messages(
