@@ -152,7 +152,10 @@ def repost(client: Client, message: Message, do_post: bool) -> None:
         
             
         if message.forward_from_chat and message.forward_from_chat.username:
-            new_caption += f"\n\nПереслано из: @{message.forward_from_chat.username}"
+            if message.forward_from_chat.username:
+                new_caption += f"\n\nПереслано из: @{message.forward_from_chat.username}"
+            else:
+                new_caption += f"\n\nПереслано из: @{message.forward_from_chat.first_name}"
             new_caption += f"\n\nАвтор: @{message.chat.username}"
         else:
             new_caption += f"\n\nАвтор: @{message.chat.username}"
