@@ -101,12 +101,13 @@ def change_channels_data(channels: List[str], path: str, new_data: bool) -> None
 
 def handle_channel_message(client: Client, message: Message) -> None:    
     chat: Chat = message.sender_chat
-    channel_name = chat.username
+    channel_name: str = chat.username
+    channel_id: str = chat.id
     
     load_settings() # Why so many times? Every single post....
 
     print(message.chat.id)
-    do_post = to_post_or_not_to_post(channel_name, get_channels_number(), multiplier=0)
+    do_post = to_post_or_not_to_post(channel_name, get_channels_number(), channel_id, multiplier=0)
     
     repost(client, message, do_post)
     print(("POSTED" if do_post else "NOT POSTED") + f" {channel_name}") 
@@ -248,8 +249,8 @@ def load_settings():
 #   * is channel whitelisted
 #   * is channel vip
 #   * compares with last post time
-def to_post_or_not_to_post(channel_name: str, channels_number: int, multiplier = 1000) -> bool:
-    if not is_whitelisted(channel_name):    # Do not post garbage channels
+def to_post_or_not_to_post(channel_name: str, channels_number: int, channel_id: str, multiplier = 1000) -> bool:
+    if not is_whitelisted(channel_name) and not is_whitelisted(channel_id):    # Do not post garbage channels
         return False
 
     if is_channel_vip(channel_name):    # We always post +ANTURAJ
