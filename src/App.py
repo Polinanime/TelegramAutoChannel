@@ -153,7 +153,7 @@ def repost(client: Client, message: Message, do_post: bool) -> None:
             new_caption = message.text.html
         
         
-        real_id = (message.chat.id)[4:] if str(message.chat.id).startswith("-100") else message.chat.id
+        real_id = str(message.chat.id)[4:] if str(message.chat.id).startswith("-100") else message.chat.id
         
             
         if message.forward_from_chat and message.forward_from_chat.username:
