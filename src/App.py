@@ -100,17 +100,21 @@ def change_channels_data(channels: List[str], path: str, new_data: bool) -> None
     return
 
 def handle_channel_message(client: Client, message: Message) -> None:    
+    if str(message.chat.id).startswith("-100"):
+        message.chat.id = str(message.chat.id)[4:]
+    
     chat: Chat = message.sender_chat
     channel_name: str = chat.username
-    channel_id: str = chat.id
+    channel_id: str = str(chat.id)
     
     load_settings() # Why so many times? Every single post....
 
     print(message.chat.id)
+    
     do_post = to_post_or_not_to_post(channel_name, get_channels_number(), channel_id, multiplier=0)
     
     repost(client, message, do_post)
-    print(("POSTED" if do_post else "NOT POSTED") + f" {channel_name}") 
+    print(("POSTED" if do_post else "NOT POSTED") + f" {channel_name} {channel_id}") 
         
     # save_stats(channel_name)    # save statistics for this channel
     
@@ -151,15 +155,20 @@ def repost(client: Client, message: Message, do_post: bool) -> None:
         elif message.text is not None:
             new_caption = message.text.html
         
+        
             
         if message.forward_from_chat and message.forward_from_chat.username:
-            if message.forward_from_chat.username:
-                new_caption += f"\n\nПереслано из: @{message.forward_from_chat.username}"
-            else:
-                new_caption += f"\n\nПереслано из: @{message.forward_from_chat.first_name}"
-            new_caption += f"\n\nАвтор: @{message.chat.username}"
-        else:
-            new_caption += f"\n\nАвтор: @{message.chat.username}"
+            # if message.forward_from_chat.username:
+            #     new_caption += f"\n\nПереслано из: @{message.forward_from_chat.username}"
+            # elif message.forward_from_chat.first_name:
+            #     new_caption += f"\n\nПереслано из: @{message.forward_from_chat.first_name}"
+            # else:
+            new_caption += f"\n\nПереслано из: [{message.forward_from_chat.title}](https://t.me/c/{message.forward_from_chat.id}/{message.id})"
+                
+        # if message.chat.username is not None:
+        #     new_caption += f"\n\nАвтор: @{message.chat.username}"
+        # else:
+        new_caption += f"\n\nАвтор: [{message.chat.title}](https://t.me/c/{message.chat.id}/{message.id})"
         new_caption += "\n\n[Стена Иннополис. Подписаться.](https://t.me/+GC10Uk2uhnsyN2Y6)"
 
         print("ERROR: ", e)
@@ -177,9 +186,13 @@ def repost(client: Client, message: Message, do_post: bool) -> None:
             POSTED[message.chat.id] = message.media_group_id
         elif message.text is not None:
             print("TEXT")
+            print(CHANNEL_ID)
             client.send_message(CHANNEL_ID, new_caption, disable_web_page_preview=True)
         else:
             print("FORWARD")
+            # print("text:", message.text)
+            # print("caption:", message.caption)
+            # print("raw: ", message.raw)
             client.forward_messages(
                 CHANNEL_ID,
                 from_chat_id=message.chat.id,
