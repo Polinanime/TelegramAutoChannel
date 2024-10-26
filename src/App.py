@@ -160,7 +160,7 @@ def repost(client: Client, message: Message, do_post: bool) -> None:
             new_caption += f"\n\nПереслано из: [{message.forward_from_chat.title}](https://t.me/c/{real_id}/{message.id})"
                 
         new_caption += f"\n\nАвтор: [{message.chat.title}](https://t.me/c/{real_id}/{message.id})"
-        new_caption += f"({hashtag})"
+        new_caption += f" ({hashtag})"
         new_caption += "\n\n[Стена Иннополис. Подписаться.](https://t.me/+GC10Uk2uhnsyN2Y6)"
 
         print("ERROR: ", e)
