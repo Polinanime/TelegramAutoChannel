@@ -153,21 +153,14 @@ def repost(client: Client, message: Message, do_post: bool) -> None:
             new_caption = message.text.html
         
         
-        real_id = str(message.chat.id)[4:] if str(message.chat.id).startswith("-100") else message.chat.id
+        real_id: str = str(message.chat.id)[4:] if str(message.chat.id).startswith("-100") else message.chat.id
+        hashtag: str = generate_hashtag(message.chat)
         
-            
         if message.forward_from_chat and message.forward_from_chat.username:
-            # if message.forward_from_chat.username:
-            #     new_caption += f"\n\nПереслано из: @{message.forward_from_chat.username}"
-            # elif message.forward_from_chat.first_name:
-            #     new_caption += f"\n\nПереслано из: @{message.forward_from_chat.first_name}"
-            # else:
             new_caption += f"\n\nПереслано из: [{message.forward_from_chat.title}](https://t.me/c/{real_id}/{message.id})"
                 
-        # if message.chat.username is not None:
-        #     new_caption += f"\n\nАвтор: @{message.chat.username}"
-        # else:
         new_caption += f"\n\nАвтор: [{message.chat.title}](https://t.me/c/{real_id}/{message.id})"
+        new_caption += f"({hashtag})"
         new_caption += "\n\n[Стена Иннополис. Подписаться.](https://t.me/+GC10Uk2uhnsyN2Y6)"
 
         print("ERROR: ", e)
@@ -197,16 +190,6 @@ def repost(client: Client, message: Message, do_post: bool) -> None:
                 from_chat_id=message.chat.id,
                 message_ids=message.id
             )
-        
-    
-    # client.copy_message(CHANNEL_ID, message.chat.id, message_id=message.id)
-    
-    # client.forward_messages(
-    #    CHANNEL_ID,
-    #    from_chat_id=message.chat.id,
-    #    message_ids=message.id
-    # )
-    
     return 
 
 
@@ -284,3 +267,13 @@ def to_post_or_not_to_post(channel_name: str, channels_number: int, channel_id: 
         return False
     return random() < chance
 
+
+def generate_hashtag(chat: Chat) -> str:
+    name: str = chat.title if chat.title else chat.first_name
+    name = name.replace(" ", "_")
+    hashtag: str = "#"
+    for i in range(len(name)):
+        if name[i].isdigit() or name[i].isalpha() or name[i] == "_":
+            hashtag += name[i]
+    return hashtag
+        
