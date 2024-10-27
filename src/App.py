@@ -130,19 +130,20 @@ def repost(client: Client, message: Message, do_post: bool) -> None:
     else:
         has_caption = False
     
-    new_caption = generate_caption(message)
-    
     try:
         if POSTED.get(message.chat.id) == message.media_group_id and message.media_group_id is not None:
             print("ALREADY POSTED")
             return
         
+        new_caption = generate_caption(message)    
         client.copy_media_group(CHANNEL_ID, message.chat.id, message_id=message.id, captions=new_caption)
         print("GROUP")
         POSTED[message.chat.id] = message.media_group_id
 
     except Exception as e:
         print("ERROR: ", e)
+        new_caption = generate_caption(message)
+        
         if message.photo and e is not TypeError:
             if not (not message.media_group_id or (message.media_group_id and not has_caption)):
                 return
