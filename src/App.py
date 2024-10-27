@@ -9,6 +9,8 @@ from datetime import datetime
 from random import random
 import time
 import json
+from random import randint
+from time import sleep
 
 import os
 
@@ -24,6 +26,7 @@ CHANNEL_ID = 0
 MULTIPLIER = 0
 POSTED = {}
 COUNTER = 0
+SLEEP_TIME = 1
 
 def load_app(api: Dict[str,str|None]) -> Client:
     global CHANNEL_ID
@@ -113,6 +116,8 @@ def handle_channel_message(client: Client, message: Message) -> None:
     repost(client, message, do_post)
     print(("POSTED" if do_post else "NOT POSTED") + f" {channel_name} {channel_id}") 
         
+    # save_stats(channel_name)    # save statistics for this channel
+    
     return
 
 def repost(client: Client, message: Message, do_post: bool) -> None:
@@ -124,24 +129,35 @@ def repost(client: Client, message: Message, do_post: bool) -> None:
     if not do_post:
         return
     
+    print(POSTED, message.media_group_id)
+    
     if message.media_group_id:
         media_group = client.get_media_group(message.chat.id, message.id)
         has_caption = any([True for msg in media_group if msg.caption is not None])
     else:
         has_caption = False
-    
+        
     try:
-        if POSTED.get(message.chat.id) == message.media_group_id and message.media_group_id is not None:
+        print("HUy")
+        if POSTED.get(message.chat.id) == message.media_group_id and message.media_group_id:
             print("ALREADY POSTED")
             return
+        if has_caption and not message.caption and message.media_group_id: # if media_group and caption but caption is not in this message
+            return
+        if not has_caption and message.media_group_id:
+            SLEEP_TIME = (SLEEP_TIME % 10) + 1
+            sleep(SLEEP_TIME)
         
-        new_caption = generate_caption(message)    
-        client.copy_media_group(CHANNEL_ID, message.chat.id, message_id=message.id, captions=new_caption)
+        caption = generate_caption(message)
+        
+        client.copy_media_group(CHANNEL_ID, message.chat.id, message_id=message.id, captions=caption)
         print("GROUP")
         POSTED[message.chat.id] = message.media_group_id
-
+        
     except Exception as e:
+        SLEEP_TIME = 0
         print("ERROR: ", e)
+        
         new_caption = generate_caption(message)
         
         if message.photo and e is not TypeError:
