@@ -113,8 +113,6 @@ def handle_channel_message(client: Client, message: Message) -> None:
     repost(client, message, do_post)
     print(("POSTED" if do_post else "NOT POSTED") + f" {channel_name} {channel_id}") 
         
-    # save_stats(channel_name)    # save statistics for this channel
-    
     return
 
 def repost(client: Client, message: Message, do_post: bool) -> None:
@@ -126,43 +124,24 @@ def repost(client: Client, message: Message, do_post: bool) -> None:
     if not do_post:
         return
     
-    print(POSTED, message.media_group_id)
-    
     if message.media_group_id:
         media_group = client.get_media_group(message.chat.id, message.id)
         has_caption = any([True for msg in media_group if msg.caption is not None])
     else:
         has_caption = False
-        
+    
+    new_caption = generate_caption(message)
+    
     try:
         if POSTED.get(message.chat.id) == message.media_group_id and message.media_group_id is not None:
             print("ALREADY POSTED")
             return
         
-        client.copy_media_group(CHANNEL_ID, message.chat.id, message_id=message.id, captions=message.caption.html + "\n\n" + f"Автор: @{message.chat.username}\n\n[Стена Иннополис. Подписаться.](https://t.me/+GC10Uk2uhnsyN2Y6)")
+        client.copy_media_group(CHANNEL_ID, message.chat.id, message_id=message.id, captions=new_caption)
         print("GROUP")
         POSTED[message.chat.id] = message.media_group_id
-#     except TypeError as e:
-#        return
 
     except Exception as e:
-        new_caption = ""
-        if message.caption is not None:
-            new_caption = message.caption.html
-        elif message.text is not None:
-            new_caption = message.text.html
-        
-        
-        real_id: str = str(message.chat.id)[4:] if str(message.chat.id).startswith("-100") else message.chat.id
-        hashtag: str = generate_hashtag(message.chat)
-        
-        if message.forward_from_chat and message.forward_from_chat.username:
-            new_caption += f"\n\nПереслано из: [{message.forward_from_chat.title}](https://t.me/c/{real_id}/{message.id})"
-                
-        new_caption += f"\n\nАвтор: [{message.chat.title}](https://t.me/c/{real_id}/{message.id})"
-        new_caption += f" ({hashtag})"
-        new_caption += "\n\n[Стена Иннополис. Подписаться.](https://t.me/+GC10Uk2uhnsyN2Y6)"
-
         print("ERROR: ", e)
         if message.photo and e is not TypeError:
             if not (not message.media_group_id or (message.media_group_id and not has_caption)):
@@ -276,4 +255,23 @@ def generate_hashtag(chat: Chat) -> str:
         if name[i].isdigit() or name[i].isalpha() or name[i] == "_":
             hashtag += name[i]
     return hashtag
+
+
+def generate_caption(message: Message) -> str:
+    caption: str = ""
+    if message.caption:
+        caption = message.caption.html
+    elif message.text:
+        caption = message.text.html
+        
+    real_id: str = str(message.chat.id)[4:] if str(message.chat.id).startswith("-100") else message.chat.id
+    hashtag: str = generate_hashtag(message.chat)
+    
+    if message.forward_from_chat and message.forward_from_chat.username:
+        caption += f"\n\nПереслано из: [{message.forward_from_chat.title}](https://t.me/c/{real_id}/{message.id})"
+            
+    caption += f"\n\nАвтор: [{message.chat.title}](https://t.me/c/{real_id}/{message.id})"
+    caption += f" ({hashtag})"
+    caption += "\n\n[Стена Иннополис. Подписаться.](https://t.me/+GC10Uk2uhnsyN2Y6)"
+    return caption
         
