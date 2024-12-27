@@ -2,7 +2,7 @@
 
 A Python-based Telegram bot that automatically reposts content from multiple source channels to a target channel with customizable features and content management.
 
-You can explore the bot's functionality bby checking out the [demo channel](https://t.me/inno_wall).
+You can explore the bot's functionality by checking out the [demo channel](https://t.me/inno_wall).
 
 ## Features
 
