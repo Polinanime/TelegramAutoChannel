@@ -1,294 +1,276 @@
-from typing import Dict, List
 import asyncio
-from pyrogram import filters
-from pyrogram.client import Client
-from pyrogram.handlers.message_handler import MessageHandler
-from pyrogram.types import Message, Chat
-from pyrogram import enums
+import json
+import logging
+import os
 from datetime import datetime
 from random import random
-import time
-import json
-from random import randint
+from typing import Dict, List, Optional, Union
 from time import sleep
 
-import os
+from pyrogram import filters
+from pyrogram.sync import idle
+from pyrogram.client import Client
+from pyrogram.errors import ImportFileInvalid
+from pyrogram.types import Message, Chat
+from pyrogram.handlers.message_handler import MessageHandler
 
-current_dir = os.getcwd()
-DATA_PATH = os.path.join(current_dir, "data/referenceChannels.json")
-VIP_PATH = os.path.join(current_dir, "data/priorityChannels.json")
-STATS_PATH = os.path.join(current_dir, "tmp/stats.json")
-SETTINGS_PATH = os.path.join(current_dir, "data/settings.json")
-CHECK_NUMBER = -1
-CHANNELS_NUMBER = 0
-CHECK_FREQ = 30
-CHANNEL_ID = 0
-MULTIPLIER = 0
-POSTED = {}
-COUNTER = 0
-SLEEP_TIME = 1
+logger = logging.getLogger(__name__)
 
-def load_app(api: Dict[str,str|None]) -> Client:
-    global CHANNEL_ID
-    
-    # CREATE APP
-    if (None in api.values() or api["api_id"] is None or api["api_hash"] is None):
-        raise ValueError("API dictionary is none")
+class TelegramBot:
+    def __init__(self, api_data: Dict[str, Optional[str]]):
+        self.current_dir = os.getcwd()
+        self.data_path = os.path.join(self.current_dir, "data/referenceChannels.json")
+        self.vip_path = os.path.join(self.current_dir, "data/priorityChannels.json")
+        self.stats_path = os.path.join(self.current_dir, "tmp/stats.json")
+        self.settings_path = os.path.join(self.current_dir, "data/settings.json")
 
-    app = Client("ChannelBuilder", api_id=api["api_id"], api_hash=api["api_hash"])
-    app.add_handler(MessageHandler(handle_channel_message, filters.channel))
-    app.add_handler(MessageHandler(handle_command, filters.AndFilter(filters.chat("self"), filters.command(["add", "vip", "mult", "remove", "unvip", "ping"], prefixes="%%"))))
-    
-    CHANNEL_ID = api["channel_id"]
-    
-    return app
+        self.check_number = -1
+        self.channels_number = 0
+        self.check_freq = 30
+        self.channel_id = api_data["channel_id"]
+        self.multiplier = 0
+        self.posted = {}
+        self.posted_lock = asyncio.Lock()
+        self.sleep_time = 1
 
-# Func to handle commands:
-#   * VIP - add to vip channels
-#   * ADD - add new channel to follow
-#   * MULT - change multiplier
-#   * REMOVE - remove from followings
-#   * UNVIP - remove from vips
-def handle_command(client: Client, message: Message) -> None:
-    print("COMMAND:" + message.text)
-    cmd = message.command
-    
-    if cmd[0] == "mult":
-        change_multiplier(int(cmd[1]))
-        return
-    
-    path = ""
-    new_data = False
-    
-    if cmd[0] == "ping":
-        client.send_message(message.chat.id, "Pong")
-        return
-    
-    if cmd[0] in ["add", "remove"]:
-        path = DATA_PATH
-    elif cmd[0] in ["vip", "unvip"]:
-        path = VIP_PATH
-        
-    if cmd[0] in ["add", "vip"]:
-        new_data = True
-    elif cmd[0] in ["remove", "unvip"]:
-        new_data = False
-        
-    print(f"Name: {cmd[1:]}, new_data: {new_data}, path: {path}")
-        
-    change_channels_data(cmd[1:], path, new_data)
-        
-    return
+        if None in api_data.values() or not api_data.get("api_id") or not api_data.get("api_hash"):
+            raise ValueError("Invalid API credentials")
 
-def change_multiplier(new_value: int) -> None:
-    MULTIPLIER = new_value
-    with open(SETTINGS_PATH, "r") as file:
-        data = json.load(file)
-    data["multiplier"] = new_value
-    with open(SETTINGS_PATH, "w") as file:
-        json.dump(data, file, indent=2)
-    
-    return
-    
-def change_channels_data(channels: List[str], path: str, new_data: bool) -> None:
-    with open(path, "r") as file:
-        data = json.load(file)
-        
-    for channel in channels:
-        data[channel] = new_data
-        
-    with open(path, "w") as file:
-        json.dump(data, file, indent=2)
-        
-    return
+        self.client = Client(
+            "ChannelBuilder",
+            api_id=api_data["api_id"],
+            api_hash=api_data["api_hash"]
+        )
 
-def handle_channel_message(client: Client, message: Message) -> None:    
-    chat: Chat = message.sender_chat
-    channel_name: str = chat.username
-    channel_id: str = str(chat.id)
-    
-    load_settings() # Why so many times? Every single post....
+        self._setup_handlers()
 
-    print(message.chat.id)
-    
-    do_post = to_post_or_not_to_post(channel_name, get_channels_number(), channel_id, multiplier=0)
-    
-    repost(client, message, do_post)
-    print(("POSTED" if do_post else "NOT POSTED") + f" {channel_name} {channel_id}") 
-        
-    # save_stats(channel_name)    # save statistics for this channel
-    
-    return
-
-def repost(client: Client, message: Message, do_post: bool) -> None:
-    print(time.time())
-    print(message.chat.id)
-    print(message.id)
-    print(CHANNEL_ID)
-       
-    if not do_post:
-        return
-    
-    print(POSTED, message.media_group_id)
-    
-    if message.media_group_id:
-        media_group = client.get_media_group(message.chat.id, message.id)
-        has_caption = any([True for msg in media_group if msg.caption is not None])
-    else:
-        has_caption = False
-        
-    try:
-        print("HUy")
-        if POSTED.get(message.chat.id) == message.media_group_id and message.media_group_id:
-            print("ALREADY POSTED")
-            return
-        if has_caption and not message.caption and message.media_group_id: # if media_group and caption but caption is not in this message
-            return
-        if not has_caption and message.media_group_id:
-            SLEEP_TIME = (SLEEP_TIME % 10) + 1
-            sleep(SLEEP_TIME)
-        
-        caption = generate_caption(message)
-        
-        client.copy_media_group(CHANNEL_ID, message.chat.id, message_id=message.id, captions=caption)
-        print("GROUP")
-        POSTED[message.chat.id] = message.media_group_id
-        
-    except Exception as e:
-        SLEEP_TIME = 0
-        print("ERROR: ", e)
-        
-        new_caption = generate_caption(message)
-        
-        if message.photo and e is not TypeError:
-            if not (not message.media_group_id or (message.media_group_id and not has_caption)):
-                return
-            print("PHOTO")
-            client.send_photo(CHANNEL_ID, message.photo.file_id, caption=new_caption)
-            POSTED[message.chat.id] = message.media_group_id
-        elif message.video and e is not TypeError:
-            if not (not message.media_group_id or (message.media_group_id and not has_caption)):
-                return
-            print("VIDEO")
-            client.send_video(CHANNEL_ID, message.video.file_id, caption=new_caption)
-            POSTED[message.chat.id] = message.media_group_id
-        elif message.text is not None:
-            print("TEXT")
-            print(CHANNEL_ID)
-            client.send_message(CHANNEL_ID, new_caption, disable_web_page_preview=True)
-        else:
-            print("FORWARD")
-            # print("text:", message.text)
-            # print("caption:", message.caption)
-            # print("raw: ", message.raw)
-            client.forward_messages(
-                CHANNEL_ID,
-                from_chat_id=message.chat.id,
-                message_ids=message.id
+    def _setup_handlers(self):
+        """Setup message handlers for the bot"""
+        self.client.add_handler(
+            MessageHandler(self.handle_channel_message, filters.channel)
+        )
+        self.client.add_handler(
+            MessageHandler(
+                self.handle_command,
+                filters.AndFilter(
+                    filters.chat("self"),
+                    filters.command(["add", "vip", "mult", "remove", "unvip", "ping"], prefixes="%%")
+                )
             )
-    return 
+        )
 
+    async def start(self):
+        """Start the bot and keep it running"""
+        await self.client.start()
+        logger.info("Bot started successfully")
+        await idle()
 
-def is_whitelisted(username:str) -> bool:
-    with open(DATA_PATH, "r") as file:
-        data = json.load(file)
-    return username in data and data[username]
+    def _load_json(self, path: str) -> Dict:
+        """Load JSON data from file"""
+        try:
+            with open(path, "r") as f:
+                return json.load(f)
+        except FileNotFoundError:
+            logger.warning(f"File not found: {path}")
+            return {}
 
+    def _save_json(self, path: str, data: Dict):
+        """Save data to JSON file"""
+        with open(path, "w") as f:
+            json.dump(data, f, indent=2)
 
-def get_stats(username: str) -> int:
-    with open(STATS_PATH, "r") as file:
-        data = json.load(file)
-    return data[username] if username in data else -1 # -1 if there were not posts yet
+    async def handle_command(self, client: Client, message: Message):
+        """Handle bot commands"""
+        logger.info(f"Received command: {message.text}")
+        cmd = message.command
 
+        if not cmd:
+            return
 
-def save_stats(username: str) -> None:
-    with open(STATS_PATH, "r") as file:
-        data = json.load(file)
-    data[username] = int(datetime.timestamp(datetime.now()))
-    
-    with open(STATS_PATH, "w") as file:
-        json.dump(data, file, indent=2)
-    
-    return
+        if cmd[0] == "mult":
+            await self.change_multiplier(int(cmd[1]))
+            return
 
-# Return if channel is prioritized (VIP in other words)
-def is_channel_vip(channel_name: str) -> bool:
-    with open(VIP_PATH, "r") as file:
-        data = json.load(file)
-    return channel_name in data and data[channel_name]
+        if cmd[0] == "ping":
+            await client.send_message(message.chat.id, "Pong")
+            return
 
-# Get channels number (used for posting chance formula)
-def get_channels_number():
-    global CHECK_FREQ, CHECK_NUMBER, CHANNELS_NUMBER
-    if CHECK_NUMBER == CHECK_FREQ or CHECK_NUMBER == -1:    # Check if we need to recalculate channels number
-        CHECK_NUMBER = 0
-        with open(DATA_PATH, "r") as file:
-            data = json.load(file)
-        CHANNELS_NUMBER = list(data.values()).count(True)
-    return CHANNELS_NUMBER
+        path = self.data_path if cmd[0] in ["add", "remove"] else self.vip_path
+        new_data = cmd[0] in ["add", "vip"]
 
-# Load settings from settings.json (Why it is not in .env? Because we do change it)
-def load_settings():
-    global MULTIPLIER
-    with open(SETTINGS_PATH, "r") as file:
-        data = json.load(file)
-    MULTIPLIER = data["multiplier"]
-    
+        await self.change_channels_data(cmd[1:], path, new_data)
 
-# Function to decide if we need to repost
-# It checks:
-#   * is channel whitelisted
-#   * is channel vip
-#   * compares with last post time
-def to_post_or_not_to_post(channel_name: str, channels_number: int, channel_id: str, multiplier = 1000) -> bool:
-    if not is_whitelisted(channel_name) and not is_whitelisted(channel_id):    # Do not post garbage channels
-        return False
+    async def change_multiplier(self, new_value: int):
+        """Change multiplier value in settings"""
+        self.multiplier = new_value
+        data = self._load_json(self.settings_path)
+        data["multiplier"] = new_value
+        self._save_json(self.settings_path, data)
 
-    if is_channel_vip(channel_name):    # We always post +ANTURAJ
-        return True
-    
-    last_post = get_stats(channel_name)
-    if last_post == -1: # The first post for this channel in history -> always post
-        return True
-    
-    time_now = int(datetime.timestamp(datetime.now()))
-    
-    if time_now == last_post:   # Too fast posting 
-        return False
-    
-    chance = 1.0 - multiplier * channels_number / (time_now - last_post)    # formula can be changed in future
-    print(chance)
-    print(f"Channel num: {channels_number}, time now: {time_now}, last_post: {last_post}") # Some logs. TODO: normal logging system
-    if chance <= 0:
-        return False
-    return random() < chance
+    async def change_channels_data(self, channels: List[str], path: str, new_data: bool):
+        """Update channels data in JSON file"""
+        data = self._load_json(path)
+        for channel in channels:
+            data[channel] = new_data
+        self._save_json(path, data)
 
+    async def handle_channel_message(self, client: Client, message: Message):
+        """Handle incoming channel messages"""
+        chat: Chat = message.sender_chat
+        channel_name: str = chat.username
+        channel_id: str = str(chat.id)
 
-def generate_hashtag(chat: Chat) -> str:
-    name: str = chat.title if chat.title else chat.first_name
-    name = name.replace(" ", "_")
-    hashtag: str = "#"
-    for i in range(len(name)):
-        if name[i].isdigit() or name[i].isalpha() or name[i] == "_":
-            hashtag += name[i]
-    return hashtag
+        self.load_settings()
 
+        do_post = await self.should_post(
+            channel_name,
+            self.get_channels_number(),
+            channel_id,
+            multiplier=0
+        )
 
-def generate_caption(message: Message) -> str:
-    caption: str = ""
-    if message.caption:
-        caption = message.caption.html
-    elif message.text:
-        caption = message.text.html
-        
-    real_id: str = str(message.chat.id)[4:] if str(message.chat.id).startswith("-100") else message.chat.id
-    hashtag: str = generate_hashtag(message.chat)
-    
-    if message.forward_from_chat and message.forward_from_chat.username:
-        caption += f"\n\nПереслано из: [{message.forward_from_chat.title}](https://t.me/c/{real_id}/{message.id})"
-            
-    caption += f"\n\nАвтор: [{message.chat.title}](https://t.me/c/{real_id}/{message.id})"
-    caption += f" ({hashtag})"
-    caption += "\n\n[Стена Иннополис. Подписаться.](https://t.me/+GC10Uk2uhnsyN2Y6)"
-    return caption
-        
+        await self.repost(client, message, do_post)
+        logger.info(f"{'POSTED' if do_post else 'NOT POSTED'} {channel_name} {channel_id}")
+
+    def is_whitelisted(self, username: str) -> bool:
+        """Check if channel is whitelisted"""
+        data = self._load_json(self.data_path)
+        return username in data and data[username]
+
+    def get_stats(self, username: str) -> int:
+        """Get channel statistics"""
+        data = self._load_json(self.stats_path)
+        return data.get(username, -1)
+
+    def save_stats(self, username: str):
+        """Save channel statistics"""
+        data = self._load_json(self.stats_path)
+        data[username] = int(datetime.timestamp(datetime.now()))
+        self._save_json(self.stats_path, data)
+
+    def is_channel_vip(self, channel_name: str) -> bool:
+        """Check if channel is VIP"""
+        data = self._load_json(self.vip_path)
+        return channel_name in data and data[channel_name]
+
+    def get_channels_number(self) -> int:
+        """Get total number of channels"""
+        if self.check_number == self.check_freq or self.check_number == -1:
+            self.check_number = 0
+            data = self._load_json(self.data_path)
+            self.channels_number = list(data.values()).count(True)
+        return self.channels_number
+
+    def load_settings(self):
+        """Load bot settings"""
+        data = self._load_json(self.settings_path)
+        self.multiplier = data.get("multiplier", 0)
+
+    async def should_post(self, channel_name: str, channels_number: int,
+                         channel_id: str, multiplier: int = 1000) -> bool:
+        """Determine if message should be posted"""
+        if not self.is_whitelisted(channel_name) and not self.is_whitelisted(channel_id):
+            return False
+
+        if self.is_channel_vip(channel_name):
+            return True
+
+        last_post = self.get_stats(channel_name)
+        if last_post == -1:
+            return True
+
+        time_now = int(datetime.timestamp(datetime.now()))
+
+        if time_now == last_post:
+            return False
+
+        chance = 1.0 - multiplier * channels_number / (time_now - last_post)
+        logger.debug(f"Post chance: {chance}, Channel number: {channels_number}")
+
+        if chance <= 0:
+            return False
+        return random() < chance
+
+    async def repost(self, client: Client, message: Message, do_post: bool):
+        """Repost message to target channel"""
+        if not do_post:
+            return
+
+        try:
+            caption = await self.generate_caption(message)
+
+            if message.media_group_id:
+                media_group = await client.get_media_group(message.chat.id, message.id)
+                has_caption = any(msg.caption is not None for msg in media_group)
+
+                if has_caption and not message.caption:
+                    return
+
+                async with self.posted_lock:
+                    if self.posted.get(message.chat.id) == message.media_group_id:
+                        logger.debug("Media group already posted")
+                        return
+
+                    await client.copy_media_group(
+                        self.channel_id,
+                        message.chat.id,
+                        message_id=message.id,
+                        captions=caption
+                    )
+                    self.posted[message.chat.id] = message.media_group_id
+
+            else:
+                if message.photo:
+                    await client.send_photo(
+                        self.channel_id,
+                        message.photo.file_id,
+                        caption=caption
+                    )
+                elif message.video:
+                    await client.send_video(
+                        self.channel_id,
+                        message.video.file_id,
+                        caption=caption
+                    )
+                elif message.text:
+                    await client.send_message(
+                        self.channel_id,
+                        caption,
+                        disable_web_page_preview=True
+                    )
+                else:
+                    await client.forward_messages(
+                        self.channel_id,
+                        from_chat_id=message.chat.id,
+                        message_ids=message.id
+                    )
+
+        except Exception as e:
+            logger.error(f"Error in repost: {e}")
+            self.sleep_time = 0
+
+    @staticmethod
+    def generate_hashtag(chat: Chat) -> str:
+        """Generate hashtag from chat title"""
+        name: str = chat.title if chat.title else chat.first_name
+        name = name.replace(" ", "_")
+        return "#" + "".join(c for c in name if c.isalnum() or c == "_")
+
+    async def generate_caption(self, message: Message) -> str:
+        """Generate caption for reposted message"""
+        caption = message.caption.html if message.caption else (
+            message.text.html if message.text else ""
+        )
+
+        real_id = str(message.chat.id)[4:] if str(
+            message.chat.id).startswith("-100") else message.chat.id
+        hashtag = self.generate_hashtag(message.chat)
+
+        if message.forward_from_chat and message.forward_from_chat.username:
+            caption += f"\n\nПереслано из: [{message.forward_from_chat.title}](https://t.me/c/{real_id}/{message.id})"
+
+        caption += f"\n\nАвтор: [{message.chat.title}](https://t.me/c/{real_id}/{message.id})"
+        caption += f" ({hashtag})"
+        caption += "\n\n[Стена Иннополис. Подписаться.](https://t.me/+GC10Uk2uhnsyN2Y6)"
+
+        return caption

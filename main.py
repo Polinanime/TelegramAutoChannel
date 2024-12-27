@@ -1,16 +1,22 @@
-from src.load_env import load_env
-from src.App import load_app
 import asyncio
-from pyrogram.client import Client
+from src.load_env import load_env
+from src.App import TelegramBot
+import logging
 
-def main():
-    try: 
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+async def main():
+    try:
         api_data = load_env()
-        app = load_app(api_data)
-        app.run()
-    except Exception:
-        main()
-    
+        bot = TelegramBot(api_data)
+        await bot.start()
+    except Exception as e:
+        logger.error(f"Error occurred: {e}")
+        await main()
 
 if __name__ == "__main__":
-    main()  # TODO: Run parallelized 
+    asyncio.run(main())
