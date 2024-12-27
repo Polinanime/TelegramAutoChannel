@@ -26,7 +26,7 @@ You can explore the bot's functionality by checking out the [demo channel](https
 1. Clone the repository:
 
 ```bash bash
-git clone [repository-url]
+git clone https://github.com/Polinanime/TelegramAutoChannel.git
 cd telegram-auto-channel
 ```
 
